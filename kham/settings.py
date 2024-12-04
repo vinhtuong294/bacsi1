@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'static',
     'rest_framework_simplejwt',
     'corsheaders',
-
+    'apscheduler',
 ]
 
 MIDDLEWARE = [
@@ -87,7 +87,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'datlich',
         'USER': 'root',
-        'PASSWORD': 'root',
+        'PASSWORD': '2704',
         'HOST': 'localhost',
         'PORT': '3306',
         'OPTIONS': {
@@ -158,8 +158,8 @@ from datetime import timedelta
 # ...
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=9),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
 }
 
 # JWT settings

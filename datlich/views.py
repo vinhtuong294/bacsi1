@@ -15,11 +15,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
 from .services import (department_service, patient_service, patient_service,
-                       exceptions, MedicalRecordServices,scheduleServices,doctor_service)
+                       exceptions,scheduleServices,doctor_service)
 from .services.authenticate_service import AuthenticateService
 from .services.department_service import DepartmentService
-from .services.MedicalRecordServices import MedicalRecordService
 from .services.scheduleServices import ScheduleService
+from .services.userService import UserService
+from .services.patient_service import PatientService
+from .services.medicalRecordServices import MedicalRecordService
 from .services.doctor_service  import DoctorService
 import json
 
@@ -80,12 +82,12 @@ class RegisterView(APIView):
         )
 
         # Lưu người dùng và xử lý tạo đối tượng phụ thuộc vai trò
-        user_repository.save(user)
+        user_repository.UserRepository.save(user)
 
         if role.name == ERole.PATIENT:
-            patient_service.create_new_patient(user)
+            patient_service.PatientService.create_new_patient(user)
         elif role.name == ERole.DOCTOR:
-            doctor_service.create_new_doctor(user)
+            doctor_service.DoctorService.create_new_doctor(user)
 
         # Trả về thông tin xác thực hoặc dữ liệu người dùng
         return Response({
@@ -133,14 +135,6 @@ class LoginView(APIView):
         # Trả về thông báo lỗi nếu thông tin đăng nhập không chính xác
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
-
-
-# def home_logged(request):
-#     return render(request, 'homepage/homeComponent/homepage.html')
-
-
-# def admin_homepage(request):
-#     return render(request, 'homepage/homeComponent/homepage.html')
 
 class home_page(APIView):
     permission_classes = [AllowAny]
@@ -194,15 +188,6 @@ class LogoutView(APIView):
 def search_result(request):
     return render(request, 'homepage/homeComponent/search_result.html')
 
-# def bookAppointment(request, doctor_id):
-#     doctor = get_object_or_404(Doctor, id=doctor_id)  # Lấy thông tin bác sĩ
-#     booking_list = Schedule.objects.filter(Doctor=doctor)  # Lấy danh sách lịch trống
-#     return render(request, 'homepage/homeComponent/bookAppointment.html', {
-#         'doctor': doctor,
-#         'booking_list': booking_list,
-#         'user': request.user,
-#     })
-
 
 
 def medicalRecordInforPageComponent(request):
@@ -243,15 +228,6 @@ def price_of_gudmec(request):
     return render(request, 'homepage/homeComponent/priceOfGudmec.html')
 
 
-# def get_department(request, department_id):
-#     department = get_object_or_404(Department, pk=department_id)
-#     return JsonResponse({
-#         "id": department.id,
-#         "name": department.name_department,
-#         "description": department.description_department,
-#         "location": department.location,
-#     })
-
 
 # Lấy danh sách bác sĩ trong khoa
 class fillter_doctor(APIView):
@@ -259,21 +235,75 @@ class fillter_doctor(APIView):
 
     def get(self, request, department_id):
         if request.method == "GET":
-                search_query = request.GET.get('search_query', None)
-                print(search_query)
-                service = DepartmentService()
-                doctors = service.get_doctors_by_department(department_id, search_query)
+            search_query = request.GET.get('search_query', None)
+            gender = request.GET.get('gender', None)
+            session = request.GET.get('session', None)
+            shift = request.GET.get('shift', None)
 
+            service = DepartmentService()
+            # Lấy danh sách bác sĩ theo department_id
+            doctors = service.get_doctors_by_department(department_id)
+
+            # Kiểm tra các điều kiện tìm kiếm
+            if search_query or gender or session or shift or search_query =='':
+                doctors = service.get_doctors_by_department(department_id, search_query, gender,session,shift)
                 context = {
-                    "nav": "partials/navLogged.html",
-                    "view": "homepage/homeComponent/fillterDoctorPage.html",
-                    "file": "fillterDoctorPage",
-                    "listDepartmentResponse": service.get_all_departments(),
-                    "listDoctorOfDepartment": doctors,
+                    "listDoctorOfDepartment": doctors
                 }
+                return render(request, "homepage/homeComponent/fillterListDoctor.html", context)
+            
+            # Nếu không có điều kiện tìm kiếm, trả về danh sách bác sĩ mặc định
+            context = {
+                "nav": "partials/navLogged.html",
+                "view": "homepage/homeComponent/fillterDoctorPage.html",
+                "file": "fillterDoctorPage",
+                "listDepartmentResponse": service.get_all_departments(),
+                "listDoctorOfDepartment": doctors,
+                "departmentId": department_id
+            }
 
-                print(doctors)
-                return render(request, "homepage/index.html", context)
+            return render(request, "homepage/index.html", context)
+
+class booking_doctor(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, doctor_id):
+        if request.method == "GET":
+            authenticate_service = AuthenticateService
+            token = request.COOKIES.get('authToken')
+            user = authenticate_service.get_user_from_token(token)
+            date = request.GET.get('date', None)
+
+            scheduleServices = ScheduleService()
+            doctorService = DoctorService()
+            shifts = scheduleServices.get_schedules_by_doctor(user.id,doctor_id,date)
+            doctor = doctorService.get_one_doctors(doctor_id)
+            if date:
+                shifts = scheduleServices.get_schedules_by_doctor(user.id,doctor_id,date)
+                context = {
+                "booking_list": shifts,
+                }
+                return render(request, "homepage/homeComponent/bookModel.html", context)
+            context = {
+                "nav": "partials/navLogged.html",
+                "view": "homepage/homeComponent/bookAppointment.html",
+                "file": "bookAppointment",
+                "booking_list": shifts,
+                "doctor": doctor
+            }
+
+            return render(request, "homepage/index.html", context)
+    def put(self, request, doctor_id):
+        if request.method == "PUT":
+            authenticate_service = AuthenticateService
+            token = request.COOKIES.get('authToken')
+            user = authenticate_service.get_user_from_token(token)
+            scheduleServices = ScheduleService()
+            shift = scheduleServices.booking(user.id,doctor_id)
+            return Response({
+                    "message": "Booking successfully.",
+                }, status=status.HTTP_200_OK)
+
 
 
 # Lấy thông tin chi tiết của bác sĩ
@@ -300,77 +330,125 @@ def get_detail_doctor(request, doctor_id):
     return render(request, "homePage/index.html", context)
 
 
-# Lọc bác sĩ trong ngày hôm nay
-def get_list_doctor_of_department_today(request, department_id):
-    doctor_name = request.GET.get("q", "")
-    gender = request.GET.get("gender", None)
-    shift = request.GET.get("shift", "")
+class Edit_user(APIView):
+    permission_classes = [AllowAny]
 
-    doctors_today = department_service.list_doctor_today(department_id)
-    doctors_filtered = department_service.filter_doctors(doctors_today, doctor_name, gender, shift, "today")
+    def get(self, request):
+        if request.method == "GET":
+            authenticate_service = AuthenticateService
+            department_service = DepartmentService
+            userService = UserService()
+            token = request.COOKIES.get('authToken')
+            user = authenticate_service.get_user_from_token(token)
+            userInfo = userService.get_one_user(user.id)
+            print(userInfo)
+            if user.role_id==3 :
+                context = {
+                    "nav": "partials/navLogged.html",
+                    "navState": "navLogged",
+                    "view": "homepage/homeComponent/edit.html",
+                    "file": "edit",
+                    "listDepartmentResponse": department_service.get_all_departments(self),
+                    "user": userInfo,
+                }
 
-    context = {"listDoctorOfDepartment": doctors_filtered}
-    return render(request, "listDoctor/listDoctorComponent.html", context)
-
-#
-# Lọc bác sĩ ngày mai
-def get_list_doctor_of_department_tomorrow(request, department_id):
-    doctor_name = request.GET.get("q", "")
-    gender = request.GET.get("gender", None)
-    shift = request.GET.get("shift", "")
-
-    doctors_tomorrow = department_service.list_doctor_tomorrow(department_id)
-    doctors_filtered = department_service.filter_doctors(doctors_tomorrow, doctor_name, gender, shift, "tomorrow")
-
-    context = {"listDoctorOfDepartment": doctors_filtered}
-    return render(request, "listDoctor/listDoctorComponent.html", context)
-
-
-# Lọc bác sĩ trong 7 ngày tiếp theo
-def get_list_doctor_of_department_next_seven_days(request, department_id):
-    doctor_name = request.GET.get("q", "")
-    gender = request.GET.get("gender", None)
-    shift = request.GET.get("shift", "")
-
-    doctors_next_seven_days = department_service.list_doctor_next_seven_days(department_id)
-    doctors_filtered = department_service.filter_doctors(doctors_next_seven_days, doctor_name, gender, shift, "nextseven")
-
-    context = {"listDoctorOfDepartment": doctors_filtered}
-    return render(request, "listDoctor/listDoctorComponent.html", context)
-
-
-# Lọc bác sĩ theo tên
-def get_list_doctor_of_department_by_name(request, department_id):
-    doctor_name = request.GET.get("q", "")
-    gender = request.GET.get("gender", None)
-    shift = request.GET.get("shift", "")
-
-    doctors = department_service.get_list_doctor(department_id, include_all=True)
-    doctors_filtered = department_service.filter_doctors(doctors, doctor_name, gender, shift, "none")
-
-    context = {"listDoctorOfDepartment": doctors_filtered}
-    return render(request, "listDoctor/listDoctorComponent.html", context)
-
-
-# Lấy danh sách lịch khám của bác sĩ
-def get_list_schedule_of_doctor(request, doctor_id):
-    schedules = doctor_service.get_list_schedules_of_doctor(doctor_id)
-    return JsonResponse(schedules, safe=False)
-
-class DepartmentView(APIView):
-    def get(self, request, department_id=None):
-        if department_id:
-            department = DepartmentService.get_department_by_id(department_id)
-            if department:
-                return Response(department, status=status.HTTP_200_OK)
-            return Response({"error": "Department not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        departments = DepartmentService.get_all_departments()
-        return Response(departments, status=status.HTTP_200_OK)
-
+                return render(request, "homepage/index.html", context)
+    def put(self, request):
+        if request.method == "PUT":
+            authenticate_service = AuthenticateService
+            userService = UserService
+            token = request.COOKIES.get('authToken')
+            user = authenticate_service.get_user_from_token(token)
+            if user.role_id==3 :
+                phone = request.data.get('phone')
+                fullname = request.data.get('fullname')
+                gender = request.data.get('gender')
+                birthday = request.data.get('birthday')
+                updated_user = userService.update_user(user.id,phone,fullname,gender,birthday)
+                return Response({
+                    "message": "User updated successfully.",
+                    "user": {
+                        "id": updated_user.id,
+                        "fullname": updated_user.fullname,
+                        "telephone": updated_user.telephone,
+                        "gender": updated_user.gender,
+                        "birthday": updated_user.birthday
+                    }
+                }, status=status.HTTP_200_OK)
     def post(self, request):
-        department = DepartmentService.create_department(request.data)
-        return Response(department, status=status.HTTP_201_CREATED)
+        if request.method == "POST":
+            authenticate_service = AuthenticateService
+            userService = UserService()
+            token = request.COOKIES.get('authToken')
+            user = authenticate_service.get_user_from_token(token)
+            if user.role_id==3 :
+                old_password = request.data.get('inputPassword')
+                new_password = request.data.get('newPassword')
+                updated_user = userService.change_password(user.id,old_password,new_password)
+                return Response({
+                    "message": "change password successfully."
+                }, status=status.HTTP_200_OK)
 
 
+class Appointment(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if request.method == "GET":
+            authenticate_service = AuthenticateService
+            schedule_service = ScheduleService()
+            token = request.COOKIES.get('authToken')
+            user = authenticate_service.get_user_from_token(token)
+            date = request.GET.get('date', None)
+            shifts = schedule_service.get_doctor_schedules(user.id,date )
+            if user.role_id==2 :
+                context = {
+                    "nav": "partials/navDoctorLogged.html",
+                    "navState": "navDoctorLogged",
+                    "view": "homepage/homeComponent/appointmentDoctor.html",
+                    "file": "appointmentDoctor",
+                    "bookings":shifts
+                }
+
+                return render(request, "homepage/index.html", context)
+            
+            
+class Medical_record(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, id):
+        if request.method == "GET":
+            authenticate_service = AuthenticateService
+            medicalRecordService= MedicalRecordService()
+            patientService = PatientService()
+            schedule_service = ScheduleService()
+            token = request.COOKIES.get('authToken')
+            user = authenticate_service.get_user_from_token(token)
+            records = medicalRecordService.get_record_patient(id)
+            patient = patientService.get_patient_schedule_id(id)
+            if user.role_id==2 :
+                context = {
+                    "nav": "partials/navDoctorLogged.html",
+                    "navState": "navDoctorLogged",
+                    "view": "homepage/homeComponent/medicalrecord.html",
+                    "file": "medicalrecord",
+                    "medical_records": records,
+                    "patient":patient,
+                    "state": schedule_service.get_one_schedule(id).state,
+                    "schedule_id":id,
+                }
+
+                return render(request, "homepage/index.html", context)
+    def post(self, request,id):
+        if request.method == "POST":
+            data = request.data
+            authenticate_service = AuthenticateService
+            medicalRecordService= MedicalRecordService
+            token = request.COOKIES.get('authToken')
+            user = authenticate_service.get_user_from_token(token)
+            if user.role_id==2 :
+                medicalRecordService.create_medical_record(id,data)
+                return Response({
+                    "message": "Thêm bệnh án thành công"
+                }, status=status.HTTP_200_OK)
 

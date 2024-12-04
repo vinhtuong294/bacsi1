@@ -16,13 +16,9 @@ class Status(models.TextChoices):
     REJECTED = 'REJECTED', _('Rejected')
 
 class ScheduleState(models.IntegerChoices):
-    WAITING = 0, _('Chờ xác nhận')
-    ACCEPTED = 1, _('Đã xác nhận')
-    CANCELED = 2, _('Đã hủy')
-    DONE = 3, _('Đã hoàn thành')
-    MISSED = 4, _('Đã bỏ lỡ')
-    REJECTED = 5, _('Đã từ chối')
-
+    WAITING = 0, _('Đang chờ')
+    DONE = 1, _('Đã hoàn thành')
+    MISSED = 2, _('Đã bỏ lỡ')
 # Main Models
 class Role(models.Model):
     name = models.CharField(max_length=20, choices=ERole.choices)
@@ -86,6 +82,7 @@ class Doctor(models.Model): #Bác sĩ
     service_prices = models.IntegerField()
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='list_doctors')
     user = models.OneToOneField(UserModel, on_delete=models.CASCADE, related_name='doctor')
+    avatar = models.TextField(blank=None, null=True)
 
     def __str__(self):
         return self.user.fullname
@@ -112,15 +109,16 @@ class Schedule(models.Model): #Lịch hẹn khám
     date = models.DateField()
     state = models.IntegerField(choices=ScheduleState.choices)
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='schedules')
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='schedules')
-    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='schedules')
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='schedules',blank=None, null=True)
+    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='schedules',blank=None, null=True)
+    is_ready = models.BooleanField(default=True)
 
-    def __str__(self):
-        return f"Schedule on {self.date} for {self.patient.name}"
 
 class MedicalRecord(models.Model): #Bệnh án
     schedule = models.OneToOneField(Schedule, on_delete=models.CASCADE, related_name='medical_record')
     diagnosis = models.TextField()
+    description = models.TextField(blank=None, null=True)
+    medical_results =models.TextField(blank=None, null=True)
 
     def __str__(self):
         return f"Medical Record for {self.schedule.patient.name} on {self.schedule.date}"

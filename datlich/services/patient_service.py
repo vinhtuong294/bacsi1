@@ -6,16 +6,17 @@ from ..serializers import *
 
 
 class PatientService:
-    def __init__(self):
-        self.patient_repository = PatientRepository()
-        self.user_repository = UserRepository()
 
-    def create_new_patient(self, user):
-        """
-        Tạo mới một bệnh nhân từ user.
-        """
-        patient = Patient.objects.create(user=user)
-        return patient
+    def create_new_patient(user):
+    # Khởi tạo một đối tượng Patient mới cho người dùng
+        Patient.objects.create(
+            name=user.fullname,
+            user=user,
+            nhommau='O',  # Giá trị mặc định hoặc tùy chỉnh dựa trên yêu cầu của ứng dụng
+            cannang=0.0,  # Giá trị mặc định hoặc tùy chỉnh
+            chieucao=0.0,  # Giá trị mặc định hoặc tùy chỉnh
+            benhnen='N/A'  # Giá trị mặc định hoặc tùy chỉnh
+        )
 
     def get_all_patients(self):
         """
@@ -58,3 +59,13 @@ class PatientService:
         except ObjectDoesNotExist:
             raise RuntimeError("Patient not found")
 
+    def get_patient_schedule_id(self, id):
+        # Lấy schedule có id tương ứng
+        schedule = Schedule.objects.select_related('patient', 'patient__user').get(id=id)
+        # Lọc các MedicalRecord theo patient_id của schedule và sắp xếp giảm dần theo id
+        return {
+            "id": schedule.patient.id,
+            "name": schedule.patient.user.fullname,
+            "birthday": schedule.patient.user.birthday,
+            "gender": schedule.patient.user.gender,
+        }
