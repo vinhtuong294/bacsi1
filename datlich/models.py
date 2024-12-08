@@ -29,19 +29,24 @@ class Role(models.Model):
 
 class UserModelManager(BaseUserManager):
     def create_user(self, username, password=None, **extra_fields):
-        """Tạo và trả về người dùng với mật khẩu mã hóa"""
         if not username:
             raise ValueError('The Username field must be set')
         user = self.model(username=username, **extra_fields)
-        user.set_password(password)  # Mã hóa mật khẩu trước khi lưu
+        user.set_password(password)
         user.save(using=self._db)
         return user
 
     def create_superuser(self, username, password=None, **extra_fields):
-        """Tạo và trả về người dùng superuser"""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
         return self.create_user(username, password, **extra_fields)
+
 
 
 class UserModel(AbstractBaseUser, PermissionsMixin):
@@ -49,13 +54,17 @@ class UserModel(AbstractBaseUser, PermissionsMixin):
     password = models.CharField(max_length=128)
     enabled = models.BooleanField(default=True)
     fullname = models.CharField(max_length=255)
-    gender = models.BooleanField()
+    gender = models.BooleanField(default=False)
     birthday = models.DateField()
     email = models.EmailField(unique=True)
     telephone = models.CharField(max_length=15, unique=True)
-    role = models.ForeignKey('Role', on_delete=models.CASCADE, related_name='users')
+    role = models.ForeignKey('Role', on_delete=models.CASCADE, related_name='users', null=True, blank=True, default=1)
 
-    USERNAME_FIELD = 'username'  # Trường dùng làm tên đăng nhập
+    # Thêm các trường phân quyền
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
+
+    USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email', 'fullname', 'birthday', 'telephone']
 
     objects = UserModelManager()
@@ -64,8 +73,8 @@ class UserModel(AbstractBaseUser, PermissionsMixin):
         return self.fullname
 
     def check_password(self, raw_password):
-        # So sánh mật khẩu được mã hóa với mật khẩu nhập vào
         return check_password(raw_password, self.password)
+
 
 class Department(models.Model): #Khoa
     name_department = models.TextField()

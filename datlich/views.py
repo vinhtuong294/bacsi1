@@ -21,9 +21,12 @@ from .services.department_service import DepartmentService
 from .services.scheduleServices import ScheduleService
 from .services.userService import UserService
 from .services.patient_service import PatientService
-from .services.medicalRecordServices import MedicalRecordService
+from .services.MedicalRecordServices import MedicalRecordService
 from .services.doctor_service  import DoctorService
 import json
+from django.core.mail import send_mail
+from django.conf import settings
+from django.contrib.sites.shortcuts import get_current_site
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -42,6 +45,59 @@ class UserViewSet(viewsets.ModelViewSet):
 
 def password_reset(request):
     return render(request, 'password_reset/password_reset.html')
+
+def reset_password(request):
+    if request.method == "POST":
+        try:
+            # Parse JSON từ body của request
+            data = json.loads(request.body)
+            email = data.get('email')
+            
+            if not email:
+                print("Debug: Email field is missing from the request body.")  # Debug
+                return JsonResponse({"error": "Email field is required."}, status=400)
+
+            print('Debug: Received email:', email)  # Debug
+
+            # Tìm người dùng có email
+            user = get_object_or_404(UserModel, email=email)
+            print('Debug: Found user:', user.email, "| Current password (hashed):", user.password)  # Debug
+
+            # Tạo mật khẩu mới
+            new_password = "KinhTe@2024"
+            print('Debug: New password to set:', new_password)  # Debug
+            
+
+            # Đặt lại mật khẩu
+            user.set_password(new_password)
+            user.save()
+            print('Debug: Password updated successfully for user:', user.email)  # Debug
+
+            # Gửi email thông báo
+            send_mail(
+                subject="Your Password Has Been Reset",
+                message=f"Your new password is: {new_password}",
+                from_email="chauchihieu2003@gmail.com",
+                recipient_list=[email],
+            )
+            print('Debug: Email sent successfully to:', email)  # Debug
+
+            return JsonResponse({"message": "New password sent to your email."}, status=200)
+
+        except json.JSONDecodeError:
+            print("Debug: Invalid JSON in request body.")  # Debug
+            return JsonResponse({"error": "Invalid JSON."}, status=400)
+
+        except UserModel.DoesNotExist:
+            print("Debug: No user found with email:", email)  # Debug
+            return JsonResponse({"error": "User with this email does not exist."}, status=404)
+
+        except Exception as e:
+            print("Debug: Unexpected error occurred:", str(e))  # Debug
+            return JsonResponse({"error": "An unexpected error occurred."}, status=500)
+
+    print("Debug: Invalid request method used.")  # Debug
+    return JsonResponse({"error": "Invalid request method."}, status=405)
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]

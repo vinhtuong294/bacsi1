@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import *
 from . import views 
+from django.contrib.auth import views as auth_views
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
@@ -39,5 +40,8 @@ urlpatterns = [
     # path('revenue/<str:date>/', RevenueView.as_view(), name='daily-revenue'),
     # path('shifts/', ShiftListView.as_view(), name='shift-list'),
     # path('shifts/<int:id>/', ShiftDetailView.as_view(), name='shift-detail'),
+
+    path('reset-password/', reset_password, name='reset_password'),
+
 ]
 

@@ -85,14 +85,11 @@ WSGI_APPLICATION = 'kham.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'datlich',
+        'NAME': 'datlichkham',
         'USER': 'root',
-        'PASSWORD': '2704',
+        'PASSWORD': 'Hieu123456@@',
         'HOST': 'localhost',
-        'PORT': '3306',
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-        }
+        'PORT': '3306',  # 3306 là cổng mặc định cho MySQL
     }
 }
 
@@ -205,3 +202,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8007",
     "http://127.0.0.1:8007",
 ]
+
+# Cấu hình email
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'chauchihieu2003@gmail.com' 
+EMAIL_HOST_PASSWORD = 'fmzz radn kdpp jdcn'
+DEFAULT_FROM_EMAIL = '48K22.2_LTW@gmail.com'  
+

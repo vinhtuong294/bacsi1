@@ -20,7 +20,7 @@ document.getElementById("passwordResetForm").addEventListener("submit", function
     console.log("Email:", email);
 
     // Gửi yêu cầu POST tới endpoint đặt lại mật khẩu
-    fetch("http://localhost:8007/password-reset", {
+    fetch("http://localhost:8007/reset-password", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"

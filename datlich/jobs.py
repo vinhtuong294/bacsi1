@@ -32,9 +32,9 @@ def update_schedule_ready_status():
         shift__time_start__lt=now.time(),
         is_ready=True
     )
-    if overdue_schedules.patient:
-        overdue_schedules.state = 2
-        overdue_schedules.save()
+    # if overdue_schedules.patient:
+    #     overdue_schedules.state = 2
+    #     overdue_schedules.save()
     overdue_schedules.update(is_ready=False)
     print(f"Updated {overdue_schedules.count()} overdue schedules to is_ready=False at {now}")
 
