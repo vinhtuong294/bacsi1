@@ -6,6 +6,9 @@ from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 import os
 
+
+
+
 # Enum classes
 class ERole(models.TextChoices):
     PATIENT = 'PATIENT', _('Patient')
@@ -28,23 +31,20 @@ class Role(models.Model):
     def __str__(self):
         return self.get_name_display()
 
-
 class UserModelManager(BaseUserManager):
     def create_user(self, username, password=None, **extra_fields):
-        """Tạo và trả về người dùng với mật khẩu mã hóa"""
         if not username:
             raise ValueError('The Username field must be set')
         user = self.model(username=username, **extra_fields)
-        user.set_password(password)  # Mã hóa mật khẩu trước khi lưu
+        user.set_password(password)
         user.save(using=self._db)
         return user
 
     def create_superuser(self, username, password=None, **extra_fields):
-        """Tạo và trả về người dùng superuser"""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('role', Role.objects.get(id=1))
         return self.create_user(username, password, **extra_fields)
-
 
 class UserModel(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=150, unique=True)
@@ -56,14 +56,24 @@ class UserModel(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     telephone = models.CharField(max_length=15, unique=True)
     role = models.ForeignKey('Role', on_delete=models.CASCADE, related_name='users')
+    image = models.ImageField(upload_to='users/images/', null=True, blank=True) 
+
+    def image_url(self):
+        if self.image:
+            return os.path.join(settings.MEDIA_URL, str(self.image))
+        return None
+    # Thêm hai trường này
+    is_staff = models.BooleanField(default=False)  # Cho phép truy cập admin
+    is_superuser = models.BooleanField(default=False)  # Quyền quản trị viên
 
     USERNAME_FIELD = 'username'  # Trường dùng làm tên đăng nhập
-    REQUIRED_FIELDS = ['email', 'fullname', 'birthday', 'telephone']
+    REQUIRED_FIELDS = ['email', 'fullname', 'birthday', 'telephone','is_staff', 'is_superuser','gender','role' ]
 
     objects = UserModelManager()
 
     def __str__(self):
         return self.fullname
+
 
     def check_password(self, raw_password):
         # So sánh mật khẩu được mã hóa với mật khẩu nhập vào
@@ -74,9 +84,6 @@ class Department(models.Model): #Khoa
     description_department = models.TextField()
     location = models.TextField()
 
-    def __str__(self):
-        return self.name_department
-
 class Doctor(models.Model): #Bác sĩ
     position = models.CharField(max_length=100)
     description = models.TextField()
@@ -85,9 +92,22 @@ class Doctor(models.Model): #Bác sĩ
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='list_doctors')
     user = models.OneToOneField(UserModel, on_delete=models.CASCADE, related_name='doctor')
     avatar = models.TextField(blank=None, null=True)
+    average_rate = models.FloatField(default=0)
+
+    def update_average_rate(self):
+        rates = self.rates.all()
+        self.average_rate = rates.aggregate(models.Avg('rate'))['rate__avg'] or 0
+        self.save()
 
     def __str__(self):
         return self.user.fullname
+    
+class Rate(models.Model):
+    content = models.TextField()
+    rate = models.IntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='rates')
+    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='user_rates')
+    date = models.DateField(auto_now_add=True, null=True)
 
 class Patient(models.Model): #bệnh nhân
     name = models.CharField(max_length=255)
@@ -114,7 +134,7 @@ class Schedule(models.Model): #Lịch hẹn khám
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='schedules',blank=None, null=True)
     shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='schedules',blank=None, null=True)
     is_ready = models.BooleanField(default=True)
-
+    
 
 class MedicalRecord(models.Model): #Bệnh án
     schedule = models.OneToOneField(Schedule, on_delete=models.CASCADE, related_name='medical_record')
@@ -133,9 +153,20 @@ class Article(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices)
     author = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='articles')
     image = models.ImageField(upload_to='articles/images/', null=True, blank=True)  # Trường lưu ảnh
+    like_count = models.IntegerField(default=0)
 
     def image_url(self):
         if self.image:
             return os.path.join(settings.MEDIA_URL, str(self.image))
         return None
+    
+class Comment(models.Model):
+    content = models.TextField()
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='user_comment')
+    date = models.DateField(auto_now_add=True, null=True)
+
+class Like(models.Model):
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='likes')  
+    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='user_likes')  
 
